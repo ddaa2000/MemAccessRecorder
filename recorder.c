@@ -12,6 +12,7 @@
 #include <sys/fcntl.h>
 #include <sys/syscall.h>
 #include <sys/ioctl.h>
+#include <signal.h>
 
 #include "perf.h"
 
@@ -115,6 +116,17 @@ struct perf_sample {
   __u64 phy_addr;
 };
 
+
+static volatile sig_atomic_t sigterm_received = 0;
+static volatile int scanner_finished = 0;
+
+void handle_sigterm(int sig) {
+    printf("Received SIGTERM (signal number %d), cleaning up...\n", sig);
+    // Perform any cleanup operations here
+    sigterm_received = 1;
+}
+
+
 static int startup(__u64 config, pid_t pid, int sample_period)
 {
     struct perf_event_attr attr;
@@ -143,12 +155,37 @@ static int startup(__u64 config, pid_t pid, int sample_period)
     return fd;
 }
 
+static void write_to_file(char* path, ssize_t number_of_records, char* record_head){
+    int fd;
+    while((fd = open(path, O_RDWR | O_CREAT | O_TRUNC)) == -1){
+        printf("failed to open %s", path);
+    }
+
+    ssize_t file_size = sizeof(record) * number_of_records;
+    ssize_t total_bytes_written = 0;
+
+    while (total_bytes_written < file_size) {
+        ssize_t bytes_written = write(fd, record_head + total_bytes_written, file_size - total_bytes_written);
+        if (bytes_written == -1) {
+            if (errno == EINTR) {
+                // Write was interrupted by a signal, retry
+                continue;
+            } else {
+                perror("Error writing to file");
+                close(fd);
+                exit(-1);
+            }
+        }
+        total_bytes_written += bytes_written;
+    }
+    close(fd);
+}
+
 static void scan_thread(struct perf_event_mmap_page *p, volatile int* present_index)
 {
     char *pbuf = (char *)p + p->data_offset;
     __sync_synchronize();
 
-    // printf("%d,\n", p->data_size);
     if(p->data_head == p->data_tail) {
         return;
     }
@@ -158,26 +195,13 @@ static void scan_thread(struct perf_event_mmap_page *p, volatile int* present_in
     __u64 head = p->data_head;
     __u64 tail = p->data_tail;
     printf("\n\nhead  %llu tail %llu delta %llu\n\n", head % p->data_size , tail % p->data_size, head - tail);
-    // printf("time enabled: %lu\n", p->time_enabled);
     for(__u64 present = tail + 1; present != head; present += 1){
         struct perf_event_header *ph = (void *)(pbuf + (present % p->data_size));
         struct perf_sample* ps;
         switch(ph->type) {
             case PERF_RECORD_SAMPLE:
                 ps = (struct perf_sample*)ph;
-                // assert(ps != NULL);
-                if(ps == NULL)
-                {
-                    // printf("null\n");
-                }
                 if(ps!= NULL &&  ps->addr != 0) {
-                    // printf("range: %p - %p \n", values, &(values[1023][4 * 1024 - 1]));
-                    // printf("present: %lu \n", present);
-                    // printf("ip %lx\n", ps->ip);
-                    // printf("tid %d\n", ps->tid);
-                    // printf("addr: %lx \n", ps->addr);
-                    // printf("time: %lu \n", ps->time);
-                    // printf("cpu: %u \n", ps->cpu);
                     write_buffer[present_buffer_index][*present_index].tid = ps->tid;
                     write_buffer[present_buffer_index][*present_index].addr = ps->addr;
                     write_buffer[present_buffer_index][*present_index].time = ps->time;
@@ -190,11 +214,8 @@ static void scan_thread(struct perf_event_mmap_page *p, volatile int* present_in
                         printf("switch to buffer %lu\n", last_full_buffer);
                     }
                 }
-                //printf("addr, %lx\n", ps->addr);
-                //printf("phy addr, %lx\n", ps->phy_addr);
                 break;
             default:
-                // printf("type %d\n", ph->type);
                 break;
         }
     }
@@ -218,65 +239,70 @@ static void *scanner(void *arg){
         struct timespec req, rem;
         req.tv_sec = 0;
         req.tv_nsec = arguments.read_period;
-        // printf("period %d\n", a);
         scan_thread(p1, &present_index);
         scan_thread(p2, &present_index);
-        // printf("before sleep\n");
         nanosleep(&req, &rem);
-        // printf("after sleep\n");
+        if(sigterm_received){
+            printf("start to terminate scanner\n");
+            break;
+        }
     }
+
+    //handling the last record
+    if( present_index != 0 ){
+        char* file_dir = malloc(strlen(arguments.output_dir) + 100);
+        __u64 present_index_to_store = last_full_buffer + 1;
+        printf("scanner storing incomplete buffer %llu\n", present_index_to_store);
+        sprintf(file_dir, "%s/%llu", arguments.output_dir, present_index_to_store);
+        
+
+        char* present_write_buffer = (char*)write_buffer[present_index_to_store % arguments.write_buffer_num];
+
+        write_to_file(file_dir, present_index, present_write_buffer);
+
+        free(file_dir);
+    }
+
+    printf("scanner finished\n");
+    scanner_finished = 1;
+
 
     return NULL;
 }
 
 static void writer(){
     char* file_dir = malloc(strlen(arguments.output_dir) + 100);
-    printf("pthread create after2\n");
     while(1){
         if(last_stored_buffer < last_full_buffer){
             printf("we need to store, remaining: %ld\n", last_full_buffer - last_stored_buffer);
-            
             
             last_stored_buffer++;
             __u64 present_index_to_store = last_stored_buffer;
             printf("storing buffer %llu\n", present_index_to_store);
             sprintf(file_dir, "%s/%llu", arguments.output_dir, present_index_to_store);
-            int fd;
-            while((fd = open(file_dir, O_RDWR | O_CREAT | O_TRUNC)) == -1){
-                printf("failed to open %llu", present_index_to_store);
-            }
-
-            ssize_t file_size = sizeof(record)*arguments.write_buffer_size;
-            ssize_t total_bytes_written = 0;
+            
 
             char* present_write_buffer = (char*)write_buffer[present_index_to_store % arguments.write_buffer_num];
 
-            while (total_bytes_written < file_size) {
-                ssize_t bytes_written = write(fd, present_write_buffer + total_bytes_written, file_size - total_bytes_written);
-                if (bytes_written == -1) {
-                    if (errno == EINTR) {
-                        // Write was interrupted by a signal, retry
-                        continue;
-                    } else {
-                        // perror("Error writing to file");
-                        close(fd);
-                        exit(-1);
-                    }
-                }
-                total_bytes_written += bytes_written;
-            }
-            close(fd);
+            write_to_file(file_dir, arguments.write_buffer_size, present_write_buffer);
+
         } else {
+            if(scanner_finished && last_stored_buffer == last_full_buffer){
+                printf("writer received scanner finished\n");
+                break;
+            }
             usleep(10);
             // printf("no need to store\n");
         }
     }
+    free(file_dir);
 
 }
 
 int main(int argc, char **argv)
 {
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
+    signal(SIGTERM, handle_sigterm);
 
     write_buffer = (record**)malloc(sizeof(record*)*arguments.write_buffer_num);
     for(int i = 0; i < arguments.write_buffer_num; i++){
@@ -288,4 +314,8 @@ int main(int argc, char **argv)
 
     writer();
 
+    //actually this should be redundant
+    pthread_join(scanner_thread, NULL);
+
+    exit(-1);
 }
