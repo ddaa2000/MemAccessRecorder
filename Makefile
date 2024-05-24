@@ -8,10 +8,10 @@ headers := $(shell find * -type f -name "*.h" -not -path "build/*")
 
 .PHONY: build library format clean
 
-target: build/recorder build/tiny build/reader
+target: build/MemAccessRecorder build/tiny build/reader
 
 
-build/recorder: perf.c recorder.c perf.h
+build/MemAccessRecorder: perf.c recorder.c perf.h
 	mkdir -p $(dir $@)
 	$(CC) $(CCFLAGS) -o $@ -pthread perf.c recorder.c
 
