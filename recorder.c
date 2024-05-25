@@ -106,14 +106,11 @@ static struct argp argp = { options, parse_opt, args_doc, doc, NULL, NULL, NULL 
 
 struct perf_sample {
   struct perf_event_header header;
-  __u64 ip;
   __u32 pid, tid;    /* if PERF_SAMPLE_TID */
   __u64 time;
   __u64 addr;        /* if PERF_SAMPLE_ADDR */
   __u32 cpu, res;    /* if PERF_SAMPLE_CPU */
-  __u64 weight;      /* if PERF_SAMPLE_WEIGHT */
   /* __u64 data_src;    /\* if PERF_SAMPLE_DATA_SRC *\/ */
-  __u64 phy_addr;
 };
 
 
@@ -137,7 +134,7 @@ static int startup(__u64 config, pid_t pid, int sample_period)
     attr.config = config;
     attr.config1 = 0;
     attr.sample_period = sample_period;
-    attr.sample_type = PERF_SAMPLE_IP | PERF_SAMPLE_TID | PERF_SAMPLE_WEIGHT | PERF_SAMPLE_ADDR | PERF_SAMPLE_PHYS_ADDR | PERF_SAMPLE_TIME | PERF_SAMPLE_CPU;
+    attr.sample_type = PERF_SAMPLE_TID | PERF_SAMPLE_ADDR | PERF_SAMPLE_TIME | PERF_SAMPLE_CPU;
     attr.disabled = 0;
     attr.inherit = 0;
     attr.exclude_kernel = 1;
@@ -183,8 +180,14 @@ static void write_to_file(char* path, ssize_t number_of_records, char* record_he
 
 static void scan_thread(struct perf_event_mmap_page *p, volatile int* present_index)
 {
+    // printf("paeg: %p\n", (void*)p);
     char *pbuf = (char *)p + p->data_offset;
+
+    return;
+
     __sync_synchronize();
+
+    
 
     if(p->data_head == p->data_tail) {
         // printf("buffer no result\n");
@@ -225,23 +228,23 @@ static void scan_thread(struct perf_event_mmap_page *p, volatile int* present_in
 
 static void *scanner(void *arg){
     printf("starting scanner\n");
+    
 
     int fd = startup(0x83d0, arguments.pid, arguments.sample_period);
-    // int fd1 = startup(0x82d0, arguments.pid, arguments.sample_period);
-    // int fd2 = startup(0x81d0, arguments.pid, arguments.sample_period);
 
-    printf("perf start-up finished\n");
+    printf("perf start-up finished fd: %d\n", fd);
 
     size_t perf_pages = (1ul + (1ul << arguments.buffer_size));
     size_t mmap_size = sysconf(_SC_PAGESIZE) * perf_pages;
-    // struct perf_event_mmap_page *p1 = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd1, 0);
-    // struct perf_event_mmap_page *p2 = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd2, 0);
+
+    // printf("%p\n", MAP_FAILED);
 
     struct perf_event_mmap_page *p = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     // start to perf
+
+    
+    // ioctl(fd, PERF_EVENT_IOC_RESET, 0);
     ioctl(fd,PERF_EVENT_IOC_ENABLE,0);
-    // ioctl(fd1,PERF_EVENT_IOC_ENABLE,0);
-    // ioctl(fd2,PERF_EVENT_IOC_ENABLE,0);
     volatile int present_index = 0;
 
     printf("ioctl finished\n");
@@ -251,8 +254,6 @@ static void *scanner(void *arg){
         req.tv_sec = 0;
         req.tv_nsec = arguments.read_period;
         scan_thread(p, &present_index);
-        // scan_thread(p1, &present_index);
-        // scan_thread(p2, &present_index);
         nanosleep(&req, &rem);
         if(sigterm_received){
             printf("start to terminate scanner\n");

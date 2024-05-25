@@ -1,4 +1,4 @@
-passwd=ziyue
+passwd=A6L1302QG8NM35EB
 
 echo $passwd | sudo -S rm output.txt
 echo $passwd | sudo -S rm outputs/*
@@ -7,11 +7,13 @@ echo $passwd | sudo -S rm outputs/*
 pid=$!
 echo $pid
 
+sleep 10
 
 
-echo $passwd | sudo -S ./build/MemAccessRecorder -b 16 -s 1000 -r 1000 -p $pid -n 128 -m 8192 -o ./outputs >> output.txt &
+echo $passwd | sudo -S ./build/MemAccessRecorder -b 16 -s 1000 -r 1000 -p $pid -n 128 -m 8192 -o ./outputs &
 
 pid_monitor=""
+sleep 1
 
 while [ -z $pid_monitor ]; do
   # commands
