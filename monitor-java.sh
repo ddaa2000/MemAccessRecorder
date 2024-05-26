@@ -1,4 +1,4 @@
-passwd=A6L1302QG8NM35EB
+passwd=ziyue321
 
 echo $passwd | sudo -S rm output.txt
 echo $passwd | sudo -S rm outputs/*

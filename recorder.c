@@ -124,7 +124,7 @@ void handle_sigterm(int sig) {
 }
 
 
-static int startup(__u64 config, pid_t pid, int sample_period)
+static int startup(__u64 config, int cpu, int sample_period)
 {
     struct perf_event_attr attr;
     memset(&attr,0,sizeof(struct perf_event_attr));
@@ -142,8 +142,10 @@ static int startup(__u64 config, pid_t pid, int sample_period)
     attr.exclude_callchain_kernel = 1;
     attr.exclude_callchain_user = 1;
     attr.precise_ip = 1;
+    attr.inherit_thread = 0;
 
-    int fd=perf_event_open(&attr,pid,-1,-1,0);
+    // int fd=perf_event_open(&attr,-1,cpu,-1,0);
+    int fd=perf_event_open(&attr,cpu,-1,-1,0);
     if(fd<0)
     {
         perror("Cannot open perf fd!");
