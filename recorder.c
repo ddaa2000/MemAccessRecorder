@@ -217,7 +217,8 @@ static void scan_thread(struct perf_event_mmap_page *p, volatile int* present_in
 
     
     printf("head %llu tail %llu delta %llu\n", head % p->data_size , tail % p->data_size, head - tail);
-    printf("abs head %llu tail %llu delta %llu\n", head , tail, head - tail);
+    // printf("abs head %llu tail %llu delta %llu\n", head , tail, head - tail);
+    printf("time: %lu %lu", ts.tv_sec, ts.tv_nsec);
     
 
     __u64 buffer_start = tail % p->data_size;
