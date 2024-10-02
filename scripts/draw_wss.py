@@ -6,33 +6,33 @@ import re
 import pickle
 import numpy as np
 import multiprocessing
-from util import *
+from utils import *
 
 
 
-pkl_path = './data-qcd-8g'
-gclog_path = '../eval-disagg-gc/logs/a-qcd-8g/logs-raw'
-output_path = './figures-qcd-8g'
+pkl_path = '/home/huaziyue/eval-disagg-gc/logs/a-median/data'
+gclog_path = '/home/huaziyue/eval-disagg-gc/logs/a-median/logs-raw'
+output_path = '/home/huaziyue/eval-disagg-gc/logs/a-median/data'
 # step = int(sys.argv[2])
 
 sample_rate = 1000
 
 # localrates = ['25', '100']
 localrates = ['100']
-sizes = ['large']
-heapsizes = ['8']
+sizes = ['median']
+heapsizes = ['32']
 iters = ['1']
 benchmarks = [
     # {'name': 'graphchi', 'apps': ['kc']},
-    # {'name': 'graphchi', 'apps': ['wcc']},
-    # {'name': 'spark', 'apps': ['pr', 'km', 'nb']},
+    {'name': 'graphchi', 'apps': ['wcc']},
+    {'name': 'spark', 'apps': ['km', 'nb']},
     # {'name': 'spark', 'apps': ['pr']},
-    # {'name': 'corenlp', 'apps': ['kbp']},
-    {'name': 'quickcached', 'apps': ['qrd']}
+    {'name': 'corenlp', 'apps': ['kbp']},
+    # {'name': 'quickcached', 'apps': ['qrd']}
 ]
 # gcs = ['ps', 'psnew', 'psmc', 'g1', 'ps_young4g', 'g1_young4g', 'genshen']
-gcs = ['g1_no_adaptive_young1g_conc04']
-# gcs = ['ps']
+# gcs = ['g1_no_adaptive_young1g_conc04']
+gcs = ['ps']
 
 
 # gcs = ['ps', 'psnew']
@@ -96,7 +96,7 @@ def wss_no_weight(data):
         # print(len(data[t].keys()))
         acc = len(data[t].keys())
         for i in range(0, 6):
-            wss_list[i].append(acc*4.0/1024/1024)
+            wss_list.append(acc*4.0/1024/1024)
 
 
     ts = [t - ts[0] for t in ts]
@@ -163,10 +163,10 @@ def app_work(localrate, size, heapsize, it, benchmark, app):
     limits = {}
     for gc in gcs:
         file_prefix = f"{output_path}/{benchmark}_{localrate}p_xmx{heapsize}g_{gc}_{app}_{size}_{it}_mem_access"
-        start_addr, end_addr = parse_gclog(gc, localrate, size, heapsize, it, benchmark, app)
+        start_addr, end_addr = parse_gclog(gclog_path, gc, localrate, size, heapsize, it, benchmark, app)
         start_addr = start_addr >> 24
         end_addr = end_addr >> 24
-        data_all, data_gc, data_mutator, data_njt = load_data(gc, localrate, size, heapsize, it, benchmark, app)
+        data_all, data_gc, data_mutator, data_njt = load_data(pkl_path, gc, localrate, size, heapsize, it, benchmark, app)
         
 
         pause_data = data_gc['pause']
@@ -194,20 +194,20 @@ def app_work(localrate, size, heapsize, it, benchmark, app):
 
         results_all['wss'][benchmark][app] = wss_all
 
-    s_procs = []
+    # s_procs = []
     # # for k in data_all_gcs.keys():
     # #     wss_prefix = f"{output_path}/{k}_{benchmark}_{localrate}p_xmx{heapsize}g_{app}_{size}_{it}"
     # #     draw_wss(wss_prefix, data_all_gcs[k])
 
-    for k in data_all_gcs.keys():
-        def draw_one_metric():
-            wss_prefix = f"{output_path}/{k}_{benchmark}_{localrate}p_xmx{heapsize}g_{app}_{size}_{it}"
-            draw_wss(wss_prefix, data_all_gcs[k], limits)
-        s_proc = multiprocessing.Process(target=draw_one_metric, args=())
-        s_procs.append(s_proc)
-        s_proc.start()
-    for p in s_procs:
-        p.join()
+    # for k in data_all_gcs.keys():
+    #     def draw_one_metric():
+    #         wss_prefix = f"{output_path}/{k}_{benchmark}_{localrate}p_xmx{heapsize}g_{app}_{size}_{it}"
+    #         draw_wss(wss_prefix, data_all_gcs[k], limits)
+    #     s_proc = multiprocessing.Process(target=draw_one_metric, args=())
+    #     s_procs.append(s_proc)
+    #     s_proc.start()
+    # for p in s_procs:
+    #     p.join()
     
     # wss_prefix = f"{output_path}/data_mutator_and_conc_{benchmark}_{localrate}p_xmx{heapsize}g_{app}_{size}_{it}"
     # draw_wss(wss_prefix, data_all_gcs['data_mutator_and_conc'])
@@ -226,5 +226,5 @@ for localrate in localrates:
                     for app in benchmark_data['apps']:
                         app_work(localrate, size, heapsize, it, benchmark, app)
 
-with open(f'{output_path}/wss.json') as f:
+with open(f'{output_path}/wss.json', 'w+') as f:
     json.dump(results_all, f)

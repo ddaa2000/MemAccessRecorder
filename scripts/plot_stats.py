@@ -6,7 +6,7 @@ import re
 import pickle
 import numpy as np
 import multiprocessing
-from util import *
+from utils import *
 
 
 
@@ -193,10 +193,10 @@ def app_work(localrate, size, heapsize, it, benchmark, app):
     limits = {}
     for gc in gcs:
         file_prefix = f"{benchmark}_{localrate}p_xmx{heapsize}g_{gc}_{app}_{size}_{it}_mem_access"
-        start_addr, end_addr = parse_gclog(gc, localrate, size, heapsize, it, benchmark, app)
+        start_addr, end_addr = parse_gclog(gclog_path, gc, localrate, size, heapsize, it, benchmark, app)
         start_addr_page = start_addr >> 12
         end_addr_page = end_addr >> 12
-        data_all, data_gc, data_mutator, data_njt = load_data(gc, localrate, size, heapsize, it, benchmark, app)
+        data_all, data_gc, data_mutator, data_njt = load_data(pkl_path, gc, localrate, size, heapsize, it, benchmark, app)
         
 
         line = draw_point_graphs(file_prefix, data_all, data_gc, data_mutator, data_njt, start_addr_page, end_addr_page)

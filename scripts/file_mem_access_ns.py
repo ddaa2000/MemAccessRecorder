@@ -6,7 +6,7 @@ import io
 import json
 from multiprocessing import Process,Queue
 import json, pickle
-from util import *
+from utils import *
 
 class Timestamp:
     def __init__(self, sampler_s, sampler_ns, is_max):

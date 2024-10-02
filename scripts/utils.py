@@ -1,3 +1,6 @@
+import re
+import pickle
+
 def update_dict_n(dicts, index, addr, n):
     if index not in dicts.keys():
         dicts[index]={}
@@ -69,8 +72,7 @@ def parse_genshen_heap_region(lines):
             found = True
     return start, end
         
-def parse_gclog(gc, localrate, size, heapsize, it, benchmark, app):
-    global gclog_path
+def parse_gclog(gclog_path, gc, localrate, size, heapsize, it, benchmark, app):
     with open(f'{gclog_path}/{benchmark}_{localrate}p_xmx{heapsize}g_{gc}_{app}_{size}_{it}.gclog') as f:
         if 'ps' in gc:
             start, end = parse_ps_heap_region(f.readlines())
@@ -82,7 +84,7 @@ def parse_gclog(gc, localrate, size, heapsize, it, benchmark, app):
     print(f'{start} {end} {(end-start)>>30}')
     return start, end
 
-def load_data(gc, localrate, size, heapsize, it, benchmark, app):
+def load_data(pkl_path, gc, localrate, size, heapsize, it, benchmark, app):
     with open(f'{pkl_path}/{benchmark}_{localrate}p_xmx{heapsize}g_{gc}_{app}_{size}_{it}-all.pkl', 'rb') as f:
         data_all = pickle.load(f)
     with open(f'{pkl_path}/{benchmark}_{localrate}p_xmx{heapsize}g_{gc}_{app}_{size}_{it}-gc.pkl', 'rb') as f:

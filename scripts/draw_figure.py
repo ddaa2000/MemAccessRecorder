@@ -396,7 +396,7 @@ def app_work(localrate, size, heapsize, it, benchmark, app):
         start_addr, end_addr = parse_gclog(gc, localrate, size, heapsize, it, benchmark, app)
         start_addr = start_addr >> 24
         end_addr = end_addr >> 24
-        data_all, data_gc, data_mutator, data_njt = load_data(gc, localrate, size, heapsize, it, benchmark, app)
+        data_all, data_gc, data_mutator, data_njt = load_data(pkl_path, gc, localrate, size, heapsize, it, benchmark, app)
         
 
         draw_point_graphs(file_prefix, data_all, data_gc, data_mutator, data_njt, start_addr, end_addr)
