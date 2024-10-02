@@ -38,8 +38,12 @@ static struct argp_option options[] = {
 typedef struct{
     __u64 tid;
     __u64 addr;
-    __u64 time;
+    __u64 core_time;
     __u32 cpu;
+    // __u64 sampler_time;
+    __u64 sampler_s;
+    __u64 sampler_ns;
+    // __u64 sampler_local_clock;
 } record;
 
 static record** write_buffer;
@@ -135,17 +139,17 @@ static int startup(__u64 config, int cpu, int sample_period)
     attr.config1 = 0;
     attr.sample_period = sample_period;
     attr.sample_type = PERF_SAMPLE_TID | PERF_SAMPLE_ADDR | PERF_SAMPLE_TIME | PERF_SAMPLE_CPU;
-    attr.disabled = 0;
-    attr.inherit = 0;
-    attr.exclude_kernel = 1;
-    attr.exclude_hv = 1;
-    attr.exclude_callchain_kernel = 1;
-    attr.exclude_callchain_user = 1;
-    attr.precise_ip = 1;
-    attr.inherit_thread = 0;
+    // attr.disabled = 0;
+    // attr.inherit = 0;
+    // attr.exclude_kernel = 1;
+    // attr.exclude_hv = 1;
+    // attr.exclude_callchain_kernel = 1;
+    // attr.exclude_callchain_user = 1;
+    attr.precise_ip = 2;
+    // attr.inherit_thread = 0;
 
-    // int fd=perf_event_open(&attr,-1,cpu,-1,0);
-    int fd=perf_event_open(&attr,cpu,-1,-1,0);
+    int fd=perf_event_open(&attr,-1,cpu,-1,0);
+    // int fd=perf_event_open(&attr,cpu,-1,-1,0);
     if(fd<0)
     {
         perror("Cannot open perf fd!");
@@ -185,24 +189,55 @@ static void scan_thread(struct perf_event_mmap_page *p, volatile int* present_in
     // printf("paeg: %p\n", (void*)p);
     char *pbuf = (char *)p + p->data_offset;
 
-    return;
-
     __sync_synchronize();
 
     
 
     if(p->data_head == p->data_tail) {
-        // printf("buffer no result\n");
         return;
     }
 
     int present_buffer_index = (last_full_buffer + 1) % arguments.write_buffer_num;
+    // printf("present buffer num %d", present_buffer_index);
 
     __u64 head = p->data_head;
     __u64 tail = p->data_tail;
+
+    // time_t current_time;
+    // current_time = time(NULL);
+    struct timespec ts;
+    if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
+        perror("clock_gettime");
+        // return -1;
+    }
+    time_t seconds = ts.tv_sec;
+    long nanoseconds = ts.tv_nsec;
+    // __u64 lc = local_clock();
+
+
+    
     printf("head %llu tail %llu delta %llu\n", head % p->data_size , tail % p->data_size, head - tail);
-    for(__u64 present = tail + 1; present != head; present += 1){
-        struct perf_event_header *ph = (void *)(pbuf + (present % p->data_size));
+    // printf("abs head %llu tail %llu delta %llu\n", head , tail, head - tail);
+    printf("time: %lu %lu", ts.tv_sec, ts.tv_nsec);
+    
+
+    __u64 buffer_start = tail % p->data_size;
+    __u64 buffer_end = head % p->data_size;
+    __u64 buffer_size = head - tail;
+
+    char* read_buffer = malloc(head - tail);
+
+    if(buffer_start < buffer_end){
+        memcpy(read_buffer, pbuf + buffer_start, buffer_size);
+    }
+    else {
+        memcpy(read_buffer, pbuf + buffer_start,  p->data_size - buffer_start);
+        memcpy(read_buffer + (p->data_size - buffer_start), pbuf,  buffer_end);
+    }
+    
+
+    for(__u64 present = 0; present < buffer_size;){
+        struct perf_event_header *ph = (void *)(read_buffer + present);
         struct perf_sample* ps;
         switch(ph->type) {
             case PERF_RECORD_SAMPLE:
@@ -210,21 +245,29 @@ static void scan_thread(struct perf_event_mmap_page *p, volatile int* present_in
                 if(ps!= NULL &&  ps->addr != 0) {
                     write_buffer[present_buffer_index][*present_index].tid = ps->tid;
                     write_buffer[present_buffer_index][*present_index].addr = ps->addr;
-                    write_buffer[present_buffer_index][*present_index].time = ps->time;
+                    write_buffer[present_buffer_index][*present_index].core_time = ps->time;
                     write_buffer[present_buffer_index][*present_index].cpu = ps->cpu;
+                    // write_buffer[present_buffer_index][*present_index].sampler_time = current_time;
+                    write_buffer[present_buffer_index][*present_index].sampler_s = seconds;
+                    write_buffer[present_buffer_index][*present_index].sampler_ns = nanoseconds;
+                    // write_buffer[present_buffer_index][*present_index].sampler_local_clock = lc;
                     (*present_index) += 1;
                     if((*present_index) >= arguments.write_buffer_size){
                         (*present_index) = 0;
                         last_full_buffer += 1;
                         present_buffer_index = (last_full_buffer + 1) % arguments.write_buffer_num;
                         printf("switch to buffer %lu\n", last_full_buffer);
+                        // printf("present buffer num %d", present_buffer_index);
                     }
                 }
+                present += ph->size;
                 break;
             default:
+                present += ph->size;
                 break;
         }
     }
+    free(read_buffer);
     p->data_tail = head;
 }
 
