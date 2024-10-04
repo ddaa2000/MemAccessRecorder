@@ -15,7 +15,9 @@ gclog_path = '/home/huaziyue/eval-disagg-gc/logs/a-median/logs-raw'
 output_path = '/home/huaziyue/eval-disagg-gc/logs/a-median/data'
 # step = int(sys.argv[2])
 
+target_window = 3000000000
 sample_rate = 1000
+sample_window = target_window / sample_rate
 
 # localrates = ['25', '100']
 localrates = ['100']
@@ -32,7 +34,7 @@ benchmarks = [
 ]
 # gcs = ['ps', 'psnew', 'psmc', 'g1', 'ps_young4g', 'g1_young4g', 'genshen']
 # gcs = ['g1_no_adaptive_young1g_conc04']
-gcs = ['ps']
+gcs = ['ps', 'psnew', 'psmc']
 
 
 # gcs = ['ps', 'psnew']
@@ -95,9 +97,7 @@ def wss_no_weight(data):
     for t in ts:
         # print(len(data[t].keys()))
         acc = len(data[t].keys())
-        for i in range(0, 6):
-            wss_list.append(acc*4.0/1024/1024)
-
+        wss_list.append(acc*4.0/1024/1024)
 
     ts = [t - ts[0] for t in ts]
 
@@ -161,6 +161,8 @@ def app_work(localrate, size, heapsize, it, benchmark, app):
     }
 
     limits = {}
+    results_all['wss'][benchmark][app] = {}
+
     for gc in gcs:
         file_prefix = f"{output_path}/{benchmark}_{localrate}p_xmx{heapsize}g_{gc}_{app}_{size}_{it}_mem_access"
         start_addr, end_addr = parse_gclog(gclog_path, gc, localrate, size, heapsize, it, benchmark, app)
@@ -177,7 +179,7 @@ def app_work(localrate, size, heapsize, it, benchmark, app):
 
         gc_dict = merge_dict([pause_dict, conc_dict])
 
-        acc_time_limits = get_acc_num_time_limits(data_all, 1000000)
+        acc_time_limits = get_acc_num_time_limits(data_all, sample_window)
 
         
         acc_time_limits_new = [(d - acc_time_limits[0])/1000 for d in acc_time_limits]
@@ -192,7 +194,7 @@ def app_work(localrate, size, heapsize, it, benchmark, app):
 
         wss_all = wss_no_weight(merge_by_time_limits(data_all, acc_time_limits))
 
-        results_all['wss'][benchmark][app] = wss_all
+        results_all['wss'][benchmark][app][gc] = wss_all
 
     # s_procs = []
     # # for k in data_all_gcs.keys():
@@ -226,5 +228,5 @@ for localrate in localrates:
                     for app in benchmark_data['apps']:
                         app_work(localrate, size, heapsize, it, benchmark, app)
 
-with open(f'{output_path}/wss.json', 'w+') as f:
+with open(f'{output_path}/wss-1.json', 'w+') as f:
     json.dump(results_all, f)

@@ -8,17 +8,17 @@ import numpy as np
 import multiprocessing
 from utils import *
 
+path='/home/huaziyue/eval-disagg-gc/logs/a-qcd-100'
 
-
-pkl_path = './data-qcd-8g'
-gclog_path = '../eval-disagg-gc/logs/a-qcd-8g/logs-raw'
-output_path = './figures-qcd-8g'
+pkl_path = f'{path}/data'
+gclog_path = f'{path}/logs-raw'
+output_path = f'{path}/figures'
 # step = int(sys.argv[2])
 
 # localrates = ['25', '100']
 localrates = ['100']
 sizes = ['large']
-heapsizes = ['8']
+heapsizes = ['32']
 iters = ['1']
 benchmarks = [
     # {'name': 'graphchi', 'apps': ['kc']},
@@ -26,10 +26,11 @@ benchmarks = [
     # {'name': 'spark', 'apps': ['pr', 'km', 'nb']},
     # {'name': 'spark', 'apps': ['pr']},
     # {'name': 'corenlp', 'apps': ['kbp']},
-    {'name': 'quickcached', 'apps': ['qrd']}
+    {'name': 'quickcached', 'apps': ['yqrdh']}
+    # {'name': 'dacapo', 'apps': ['h2']}
 ]
 # gcs = ['ps', 'psnew', 'psmc', 'g1', 'ps_young4g', 'g1_young4g', 'genshen']
-gcs = ['g1_no_adaptive_young1g_conc04']
+gcs = ['g1_no_adaptive_young4g_conc04']
 # gcs = ['ps']
 
 

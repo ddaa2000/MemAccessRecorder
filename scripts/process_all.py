@@ -2,14 +2,14 @@ import os
 import sys
 from utils import *
 
-dir = '/home/huaziyue/eval-disagg-gc/logs/a-median'
+dir = '/home/huaziyue/eval-disagg-gc/logs/a-qcd-100'
 
 json_dir = f'{dir}/logs-json'
 raw_dir = f'{dir}/logs-raw'
 output_dir = f'{dir}/data'
 
 for file in os.listdir(json_dir):
-    # if 'quickcached_100p_xmx8g_g1_no_adap' in file:
+    # if 'qcd' in file:
     print(file)
     file_name_short = file.replace('.json', '')
     print(file_name_short)
