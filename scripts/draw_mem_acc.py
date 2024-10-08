@@ -22,12 +22,11 @@ heapsizes = ['32']
 iters = ['1']
 benchmarks = [
     # {'name': 'graphchi', 'apps': ['kc']},
-    # {'name': 'graphchi', 'apps': ['wcc']},
-    # {'name': 'spark', 'apps': ['pr', 'km', 'nb']},
-    # {'name': 'spark', 'apps': ['pr']},
-    # {'name': 'corenlp', 'apps': ['kbp']},
-    {'name': 'quickcached', 'apps': ['yqrdh']}
-    # {'name': 'dacapo', 'apps': ['h2']}
+    {'name': 'graphchi', 'apps': ['wcc']},
+    {'name': 'spark', 'apps': ['km', 'nb']},
+    {'name': 'dacapo', 'apps': ['h2']},
+    {'name': 'corenlp', 'apps': ['kbp']},
+    {'name': 'quickcached', 'apps': ['yqrdh', 'yqrdu']}
 ]
 # gcs = ['ps', 'psnew', 'psmc', 'g1', 'ps_young4g', 'g1_young4g', 'genshen']
 gcs = ['g1_no_adaptive_young4g_conc04']

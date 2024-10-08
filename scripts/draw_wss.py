@@ -28,9 +28,9 @@ benchmarks = [
     # {'name': 'graphchi', 'apps': ['kc']},
     {'name': 'graphchi', 'apps': ['wcc']},
     {'name': 'spark', 'apps': ['km', 'nb']},
-    # {'name': 'spark', 'apps': ['pr']},
+    {'name': 'dacapo', 'apps': ['h2']},
     {'name': 'corenlp', 'apps': ['kbp']},
-    # {'name': 'quickcached', 'apps': ['qrd']}
+    {'name': 'quickcached', 'apps': ['yqrdh', 'yqrdu']}
 ]
 # gcs = ['ps', 'psnew', 'psmc', 'g1', 'ps_young4g', 'g1_young4g', 'genshen']
 # gcs = ['g1_no_adaptive_young1g_conc04']
@@ -228,5 +228,5 @@ for localrate in localrates:
                     for app in benchmark_data['apps']:
                         app_work(localrate, size, heapsize, it, benchmark, app)
 
-with open(f'{output_path}/wss-1.json', 'w+') as f:
+with open(f'{output_path}/wss.json', 'w+') as f:
     json.dump(results_all, f)
