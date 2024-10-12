@@ -1,31 +1,21 @@
 import json
 import matplotlib.pyplot as plt
 import sys
-import os
-import re
-import pickle
-import numpy as np
-import multiprocessing
-from utils import *
 
+plt.style.use('../../../fig_scripts/usenix.mplstyle')
 
-
-pkl_path = '/home/huaziyue/eval-disagg-gc/logs/a-median/data'
-gclog_path = '/home/huaziyue/eval-disagg-gc/logs/a-median/logs-raw'
-input_path = '/home/huaziyue/eval-disagg-gc/logs/a-median/data'
+input_path = '/home/xiaojiawei/eval-disagg-gc/logs/wss/'
 # step = int(sys.argv[2])
-
-sample_rate = 1000
 
 # localrates = ['25', '100']
 localrates = ['100']
 sizes = ['median']
 heapsizes = ['32']
 iters = ['1']
-apps = ['GWCC', 'SKM', 'SNB', 'KBP', 'QRIh', 'DH2', ]
+apps = ['SKM', 'SNB', 'GWC', 'KBP', 'QRIh', 'DH2', ]
 benchmarks = [
     # {'name': 'graphchi', 'apps': ['kc']},
-    {'name': 'graphchi', 'apps': ['wcc'], 'short_names': ['GWCC']},
+    {'name': 'graphchi', 'apps': ['wcc'], 'short_names': ['GWC']},
     {'name': 'spark', 'apps': ['km', 'nb'], 'short_names': ['SKM', 'SNB']},
     # {'name': 'spark', 'apps': ['pr']},
     {'name': 'corenlp', 'apps': ['kbp'], 'short_names': ['KBP']},
@@ -35,7 +25,7 @@ benchmarks = [
 
 benchmark_mapping = {
     'graphchi': {
-        'wcc': 'GWCC',
+        'wcc': 'GWC',
     },
     'spark': {
         'km': 'SKM',
@@ -59,8 +49,26 @@ colors = { 'ms': 'steelblue', 'psnew':'steelblue', 'psmc':'steelblue',
 
 # gcs = ['ps', 'psnew', 'psmc', 'g1', 'ps_young4g', 'g1_young4g', 'genshen']
 # gcs = ['g1_no_adaptive_young1g_conc04']
-gcs = ['ps', 'psnew', 'psmc']
-
+gcs = ['psnew', 'psmc', 'ps']
+gc_colors = {
+    'psnew': '#3C8DC7',
+    'psmc': '#C4B200',
+    'ps': '#A74400',
+}
+gc_markers = {
+    'psnew': '^',
+    'psmc': 's',
+    'ps': 'o',
+}
+gc_legends = {
+    'psnew': 'MSE',
+    'psmc': 'MC',
+    'ms': 'MSP',
+    'ps': 'PS',
+    'g1': 'G1',
+    'g1_no_pause_limit': 'G1T',
+    'genshen': 'GenShen'
+}
 
 # gcs = ['ps', 'psnew']
 
@@ -91,30 +99,87 @@ for benchmark in wss_data.keys():
         for gc in wss_data[benchmark][app].keys():
             wss_values[benchmark_mapping[benchmark][app]][gc] = wss_data[benchmark][app][gc]
 
-
-fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(6,5))
-
 instr_window = 3000000000 / 1000000
-
-for i in range(0, len(apps)):
-    ax = axes[i//3,i%3]
+def plotOne(app):
     for gc in gcs:
-        l = [n * instr_window for n in range(0, len(wss_values[apps[i]][gc][1]))]
-        ax.plot(l, wss_values[apps[i]][gc][1])
-    ax.set_ylim(0, 6)
+        l = [n * instr_window / 1e3 for n in range(0, len(wss_values[app][gc][1]))]
+        ax.plot(
+            l,
+            wss_values[app][gc][1],
+            color=gc_colors[gc],
+            marker=gc_markers[gc],
+            markersize=3,
+            markerfacecolor='none',
+            markeredgewidth=0.7,
+            linewidth=0.7,
+            label=gc_legends[gc],
+        )
+    # ax.set_ylim(0, 6)
     ax.grid(axis='y', linestyle='dashed', linewidth=0.7)
-    ax.set_title(apps[i])
-    if i == 3:
-        ax.set_ylabel('WSS (GB)')
-    if i == 4:
-        ax.set_xlabel('Memory Access Instruction Index')
-        
-plt.subplots_adjust(top=0.92, bottom=0.1, left=0.08, right=0.98,
-                    wspace=0.5, hspace=0.35)
-plt.savefig('test.pdf')
-plt.savefig('test.png')
+
+fig = plt.figure(figsize=(3.335,3.6), constrained_layout=False)
+axd = fig.subplot_mosaic(
+    """
+    AB
+    CD
+    EF
+    """,
+)
 
 
+ax = axd['A']
+app = 'SKM'
+plotOne(app)
+ax.set_title(app)
 
+ax = axd['B']
+app = 'SNB'
+plotOne(app)
+ax.set_title(app)
 
+ax = axd['C']
+app = 'GWC'
+plotOne(app)
+ax.set_title(app)
 
+ax = axd['D']
+app = 'KBP'
+plotOne(app)
+ax.set_title(app)
+
+ax = axd['E']
+app = 'QRIh'
+plotOne(app)
+ax.set_title(app)
+
+ax = axd['F']
+app = 'DH2'
+plotOne(app)
+ax.set_title(app)
+
+fig.supylabel('WSS [GB]')
+fig.supxlabel('Memory Access Instruction Index [K]')
+
+# Move legend of ax A to the top of figure
+handles, labels = axd['A'].get_legend_handles_labels()
+# position of legend
+loc = bbox_to_anchor=(-0.8, 4.1)
+legend = plt.legend(
+    handles, labels,
+    loc=loc, # position of legend
+    fontsize = '8',
+    ncol=3, # number of cols
+    frameon=False, fancybox=False, # no boxes
+    columnspacing=1, # space between cols
+)
+
+plt.subplots_adjust(top=0.91, bottom=0.1, left=0.1, right=0.98,
+                    wspace=0.2, hspace=0.45)
+plt.savefig(
+    '/home/xiaojiawei/eval-disagg-gc/figures/wss/wss.pdf',
+    dpi=400
+)
+plt.savefig(
+    '/home/xiaojiawei/eval-disagg-gc/figures/wss/wss.png',
+    dpi=200
+)
